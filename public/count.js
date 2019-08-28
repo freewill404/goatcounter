@@ -21,6 +21,7 @@
 		return {
 			p: (vars.path     || (loc.pathname + loc.search) || '/'),
 			r: (vars.referrer || document.referrer),
+			c: (vars.code     || 200),
 		};
 	};
 

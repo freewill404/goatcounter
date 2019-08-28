@@ -30,6 +30,7 @@ type Hit struct {
 	Site int64 `db:"site" json:"-"`
 
 	Path        string    `db:"path" json:"p,omitempty"`
+	Code        uint16    `db:"code" json:"c,omitempty"`
 	Ref         string    `db:"ref" json:"r,omitempty"`
 	RefParams   *string   `db:"ref_params" json:"ref_params,omitempty"`
 	RefOriginal *string   `db:"ref_original" json:"ref_original,omitempty"`
@@ -262,6 +263,9 @@ func (h *Hit) Defaults(ctx context.Context) {
 	// site := MustGetSite(ctx)
 	// h.Site = site.ID
 
+	if h.Code == 0 {
+		h.Code = 200
+	}
 	if h.CreatedAt.IsZero() {
 		h.CreatedAt = time.Now().UTC()
 	}
@@ -295,6 +299,7 @@ func (h *Hit) Validate(ctx context.Context) error {
 
 	v.Required("site", h.Site)
 	v.Required("path", h.Path)
+	v.Range("code", int64(h.Code), 100, 599)
 
 	return v.ErrorOrNil()
 }
@@ -322,9 +327,9 @@ func (h *Hit) Insert(ctx context.Context) error {
 	}
 
 	_, err = MustGetDB(ctx).ExecContext(ctx,
-		`insert into hits (site, path, ref, ref_params, ref_original, created_at)
-		values ($1, $2, $3, $4, $5, $6, $7)`,
-		h.Site, h.Path, h.Ref, h.RefParams, h.RefOriginal, sqlDate(h.CreatedAt), h.RefScheme)
+		`insert into hits (site, path, code, ref, ref_params, ref_original, created_at)
+		values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		h.Site, h.Path, h.Code, h.Ref, h.RefParams, h.RefOriginal, sqlDate(h.CreatedAt), h.RefScheme)
 	return errors.Wrap(err, "Site.Insert")
 }
 

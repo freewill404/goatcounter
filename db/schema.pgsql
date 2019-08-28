@@ -53,6 +53,7 @@ create table hits (
 	site           integer        not null                 check(site > 0),
 
 	path           varchar        not null,
+	code           integer        not null default 200     check(code >= 100 and code <= 599),
 	ref            varchar        not null,
 	ref_original   varchar,
 	ref_params     varchar,
@@ -69,6 +70,7 @@ create table hit_stats (
 
 	day            date           not null,
 	path           varchar        not null,
+	code           integer        not null default 200     check(code >= 100 and code <= 599),
 	stats          varchar        not null,
 
 	created_at     timestamp      null,
