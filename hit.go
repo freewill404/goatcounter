@@ -327,10 +327,10 @@ func (h *Hit) Insert(ctx context.Context) error {
 	}
 
 	_, err = MustGetDB(ctx).ExecContext(ctx,
-		`insert into hits (site, path, code, ref, ref_params, ref_original, created_at)
+		`insert into hits (site, path, code, ref, ref_params, ref_original, ref_scheme, created_at)
 		values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		h.Site, h.Path, h.Code, h.Ref, h.RefParams, h.RefOriginal, sqlDate(h.CreatedAt), h.RefScheme)
-	return errors.Wrap(err, "Site.Insert")
+		h.Site, h.Path, h.Code, h.Ref, h.RefParams, h.RefOriginal, h.RefScheme, sqlDate(h.CreatedAt))
+	return errors.Wrap(err, "Hit.Insert")
 }
 
 type Hits []Hit
@@ -361,6 +361,9 @@ func (h *HitStats) List(ctx context.Context, start, end time.Time, exclude []str
 	site := MustGetSite(ctx)
 
 	limit := site.Settings.Limits.Page
+	if limit == 0 {
+		limit = 20
+	}
 	more := false
 	if len(exclude) > 0 {
 		// Get one page more so we can detect if there are more pages after

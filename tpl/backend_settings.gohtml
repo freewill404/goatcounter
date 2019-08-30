@@ -82,8 +82,8 @@
 <p><code>window.counter</code> is the endpoint which records the path and
 referrer.</p>
 
-<p><code>window.vars</code> is an optional setting to set the <code>path</code>
-and/or <code>referrer</code>; for example:</p>
+<p><code>window.vars</code> is an optional setting to set the <code>path</code>,
+<code>referrer</code>, or `<code>code</code>. For example:</p>
 
 <pre>
 (function() {
@@ -91,8 +91,10 @@ and/or <code>referrer</code>; for example:</p>
 		return;
 	}
 
+	// Set status code to 404.
+	window.vars = {code: 404};
 
-	// ...
+	// .. code above ..
 })();
 </pre>
 

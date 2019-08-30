@@ -23,6 +23,7 @@ import (
 
 type stat struct {
 	Path      string    `db:"path"`
+	Code      int       `db:"code"`
 	Count     int       `db:"count"`
 	CreatedAt time.Time `db:"created_at"`
 }
@@ -41,7 +42,7 @@ func updateAllHitStats(ctx context.Context) error {
 			return errors.Wrapf(err, "site %d", s.ID)
 		}
 	}
-	l.Since("updateAllStats")
+	l.Since("updateAllHitStats")
 	return nil
 }
 
@@ -63,26 +64,28 @@ func updateSiteHitStat(ctx context.Context, site goatcounter.Site) error {
 		query = `
 			select
 				path,
+				code,
 				count(path) as count,
 				cast(substr(cast(created_at as varchar), 0, 14) || ':00:00' as timestamp) as created_at
 			from hits
 			where
 				site=$1 and
 				created_at>=$2
-			group by path, substr(cast(created_at as varchar), 0, 14)
-			order by path, substr(cast(created_at as varchar), 0, 14)`
+			group by path, code, substr(cast(created_at as varchar), 0, 14)
+			order by path, code, substr(cast(created_at as varchar), 0, 14)`
 	} else {
 		query = `
 			select
 				path,
+				code,
 				count(path) as count,
 				created_at
 			from hits
 			where
 				site=$1 and
 				created_at>=$2
-			group by path, strftime('%Y-%m-%d %H', created_at)
-			order by path, strftime('%Y-%m-%d %H', created_at)`
+			group by path, code, strftime('%Y-%m-%d %H', created_at)
+			order by path, code, strftime('%Y-%m-%d %H', created_at)`
 	}
 
 	var stats []stat
@@ -114,7 +117,7 @@ func updateSiteHitStat(ctx context.Context, site goatcounter.Site) error {
 	}
 
 	ins := bulk.NewInsert(ctx, goatcounter.MustGetDB(ctx).(*sqlx.DB),
-		"hit_stats", []string{"site", "day", "path", "stats"})
+		"hit_stats", []string{"site", "day", "path", "code", "stats"})
 	for path, dayst := range hourly {
 		exists := false
 		for _, h := range have {
@@ -126,7 +129,7 @@ func updateSiteHitStat(ctx context.Context, site goatcounter.Site) error {
 
 		var del []string
 		for day, st := range dayst {
-			ins.Values(site.ID, day, path, jsonutil.MustMarshal(st))
+			ins.Values(site.ID, day, path, st.code, jsonutil.MustMarshal(st.stats))
 			if exists {
 				del = append(del, day)
 			}
@@ -157,33 +160,47 @@ func updateSiteHitStat(ctx context.Context, site goatcounter.Site) error {
 	return errors.WithStack(err)
 }
 
-func fillHitBlanks(stats []stat, existing []string, siteCreated time.Time) map[string]map[string][][]int {
+type hourlyStats struct {
+	code  int
+	stats [][]int
+}
+
+func fillHitBlanks(stats []stat, existing []string, siteCreated time.Time) map[string]map[string]hourlyStats {
 	// Convert data to easier structure:
 	// {
 	//   "jquery.html": map[string][][]int{
-	//     "2019-06-22": []{
-	// 	     []int{4, 50},
-	// 	     []int{6, 4},
+	//     "2019-06-22": hourlyStats{
+	//       Code: 200,
+	//       Stats: [][]int{
+	// 	         []int{4, 50},
+	// 	         []int{6, 4},
+	// 	       },
 	// 	   },
-	// 	   "2019-06-23": []{ .. }.
+	// 	   "2019-06-23": (..).
 	// 	 },
-	// 	 "other.html": { .. },
+	// 	 "other.html": (..),
 	// }
-	hourly := map[string]map[string][][]int{}
+	hourly := map[string]map[string]hourlyStats{}
 	first := now.BeginningOfDay()
 	for _, s := range stats {
-		_, ok := hourly[s.Path]
-		if !ok {
-			hourly[s.Path] = map[string][][]int{}
+		if _, ok := hourly[s.Path]; !ok {
+			hourly[s.Path] = map[string]hourlyStats{}
+		}
+		day := s.CreatedAt.Format("2006-01-02")
+		if _, ok := hourly[s.Path][day]; !ok {
+			hourly[s.Path][day] = hourlyStats{code: s.Code}
 		}
 
 		if s.CreatedAt.Before(first) {
 			first = now.New(s.CreatedAt).BeginningOfDay()
 		}
 
-		day := s.CreatedAt.Format("2006-01-02")
-		hourly[s.Path][day] = append(hourly[s.Path][day],
-			[]int{s.CreatedAt.Hour(), s.Count})
+		// hourly[s.Path][day].stats = append(hourly[s.Path][day].stats,
+		// 	[]int{s.CreatedAt.Hour(), s.Count})
+		hourly[s.Path][day] = hourlyStats{
+			code:  hourly[s.Path][day].code,
+			stats: append(hourly[s.Path][day].stats, []int{s.CreatedAt.Hour(), s.Count}),
+		}
 	}
 
 	// Fill in blank days.
@@ -201,7 +218,7 @@ func fillHitBlanks(stats []stat, existing []string, siteCreated time.Time) map[s
 		for _, day := range alldays {
 			_, ok := days[day]
 			if !ok {
-				hourly[path][day] = allhours
+				hourly[path][day] = hourlyStats{code: hourly[path][day].code, stats: allhours}
 			}
 		}
 
@@ -217,7 +234,7 @@ func fillHitBlanks(stats []stat, existing []string, siteCreated time.Time) map[s
 
 			for _, day := range daysSinceCreated {
 				if _, ok := hourly[path][day]; !ok {
-					hourly[path][day] = allhours
+					hourly[path][day] = hourlyStats{code: hourly[path][day].code, stats: allhours}
 				}
 			}
 		}
@@ -226,14 +243,14 @@ func fillHitBlanks(stats []stat, existing []string, siteCreated time.Time) map[s
 	// Fill in blank hours.
 	for path, days := range hourly {
 		for dayk, day := range days {
-			if len(day) == 24 {
+			if len(day.stats) == 24 {
 				continue
 			}
 
 			newday := make([][]int, 24)
 		outer:
 			for i, hour := range allhours {
-				for _, h := range day {
+				for _, h := range day.stats {
 					if h[0] == hour[0] {
 						newday[i] = h
 						continue outer
@@ -242,7 +259,7 @@ func fillHitBlanks(stats []stat, existing []string, siteCreated time.Time) map[s
 				newday[i] = hour
 			}
 
-			hourly[path][dayk] = newday
+			hourly[path][dayk] = hourlyStats{code: day.code, stats: newday}
 		}
 	}
 
