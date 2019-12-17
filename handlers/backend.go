@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/arp242/geoip2-golang"
+	"github.com/avct/uasurfer"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/jmoiron/sqlx"
-	"github.com/mssola/user_agent"
 	"github.com/pkg/errors"
 	"github.com/teamwork/guru"
 	"zgo.at/goatcounter"
@@ -151,7 +151,7 @@ func (h backend) count(w http.ResponseWriter, r *http.Request) error {
 
 	// Don't track pages fetched with the browser's prefetch algorithm.
 	// See https://github.com/usefathom/fathom/issues/13
-	if r.Header.Get("X-Moz") == "prefetch" || r.Header.Get("X-Purpose") == "preview" || user_agent.New(r.UserAgent()).Bot() {
+	if r.Header.Get("X-Moz") == "prefetch" || r.Header.Get("X-Purpose") == "preview" || uasurfer.Parse(r.UserAgent()).IsBot() {
 		w.Header().Set("Content-Type", "image/gif")
 		return zhttp.Bytes(w, gif)
 	}

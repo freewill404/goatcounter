@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/arp242/geoip2-golang v1.4.0
+	github.com/avct/uasurfer v0.0.0-20191028135549-26b5daa857f1
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/jinzhu/now v1.1.1
