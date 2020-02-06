@@ -42,7 +42,7 @@ func init() {
 	zhttp.FuncMap["horizontal_chart"] = HorizontalChart
 }
 
-func BarChart(ctx context.Context, stats []Stat, max int) template.HTML {
+func BarChart(ctx context.Context, stats []Stat, max int, daily bool) template.HTML {
 	site := MustGetSite(ctx)
 
 	now := time.Now().In(site.Settings.Timezone.Loc())
@@ -56,7 +56,7 @@ func BarChart(ctx context.Context, stats []Stat, max int) template.HTML {
 	// Daily view.
 	// TODO: apply TZ offsets, e.g. if UTC+8 and local time is after 16:00, then
 	// add hours from next day.
-	if len(stats) > DailyView {
+	if daily {
 		var b strings.Builder
 		for _, stat := range stats {
 			inner := ""
