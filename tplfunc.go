@@ -47,14 +47,12 @@ func BarChart(ctx context.Context, stats []Stat, max int) template.HTML {
 
 	now := time.Now().In(site.Settings.Timezone.Loc())
 	_, offset := now.Zone()
-
-	// Round to next hour for TZ offset of 9.5 hours, instead of down.
-	if offset%3600 != 0 {
+	if offset%3600 != 0 { // Round to next hour for 9.5 hours, instead of down.
 		offset += 1900
 	}
-
 	offset /= 3600
-	applyOffset(offset, stats)
+
+	stats = applyOffset(now, offset, stats)
 
 	var b strings.Builder
 	today := now.Format("2006-01-02")
@@ -110,7 +108,9 @@ func BarChart(ctx context.Context, stats []Stat, max int) template.HTML {
 //
 // Offsets that are not whole hours (e.g. 6:30) are treated like 7:00. I don't
 // know how to do that otherwise.
-func applyOffset(offset int, stats []Stat) {
+func applyOffset(now time.Time, offset int, stats []Stat) []Stat {
+	nowUTC := time.Now().UTC()
+
 	switch {
 	case offset > 0:
 		popped := make([]int, offset)
@@ -121,6 +121,10 @@ func applyOffset(offset int, stats []Stat) {
 			stats[i].Days = stats[i].Days[:o]
 		}
 
+		if now.Day() > nowUTC.Day() {
+			stats = stats[1:]
+		}
+
 	case offset < 0:
 		offset = -offset
 		popped := make([]int, offset)
@@ -129,7 +133,13 @@ func applyOffset(offset int, stats []Stat) {
 			popped = stats[i].Days[:offset]
 			stats[i].Days = stats[i].Days[offset:]
 		}
+
+		if now.Day() < nowUTC.Day() {
+			stats = stats[:len(stats)]
+		}
 	}
+
+	return stats
 }
 
 func HorizontalChart(ctx context.Context, stats Stats, total, parentTotal int, cutoff float32, link bool) template.HTML {

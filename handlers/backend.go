@@ -290,7 +290,7 @@ func (h backend) index(w http.ResponseWriter, r *http.Request) error {
 	} else {
 		if s := r.URL.Query().Get("period-start"); s != "" {
 			var err error
-			start, err = time.Parse("2006-01-02", s)
+			start, err = time.ParseInLocation("2006-01-02", s, site.Settings.Timezone.Loc())
 			if err != nil {
 				zhttp.FlashError(w, "start date: %s", err.Error())
 				start = now.Add(-7 * day)
@@ -298,6 +298,7 @@ func (h backend) index(w http.ResponseWriter, r *http.Request) error {
 		}
 		if s := r.URL.Query().Get("period-end"); s != "" {
 			var err error
+			//end, err = time.ParseInLocation("2006-01-02", s, site.Settings.Timezone.Loc())
 			end, err = time.Parse("2006-01-02", s)
 			if err != nil {
 				zhttp.FlashError(w, "end date: %s", err.Error())
@@ -306,32 +307,48 @@ func (h backend) index(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	// InLocation
+	// 2020-02-07 00:00:00 +0800 WITA  → 2020-02-07 00:00:00 +0800 WITA
+	// 2020-02-06 16:00:00 +0000 UTC   → 2020-02-06 16:00:00 +0000 UTC
+	//
+	// Offset
+	// 2020-02-07 00:00:00 +0800 WITA  → 2020-02-07 00:00:00 +0800 WITA
+	// 2020-02-06 16:00:00 +0000 UTC   → 2020-02-06 16:00:00 +0000 UTC
+	//
+	// no tz for end
+	// 2020-02-06 00:00:00 +0800 WITA  → 2020-02-07 00:00:00 +0000 UTC
+	// 2020-02-05 16:00:00 +0000 UTC   → 2020-02-07 00:00:00 +0000 UTC
+	fmt.Println(start, "\t→", end)
+	startUTC := start.UTC()
+	endUTC := end.UTC()
+	fmt.Println(startUTC, "\t→", endUTC)
+
 	filter := r.URL.Query().Get("filter")
 	l := zlog.Module("backend").Field("site", site.ID)
 
 	var pages goatcounter.HitStats
-	total, totalDisplay, _, err := pages.List(r.Context(), start, end, filter, nil)
+	total, totalDisplay, _, err := pages.List(r.Context(), startUTC, endUTC, filter, nil)
 	if err != nil {
 		return err
 	}
 	l = l.Since("pages.List")
 
 	var browsers goatcounter.Stats
-	totalBrowsers, err := browsers.ListBrowsers(r.Context(), start, end)
+	totalBrowsers, err := browsers.ListBrowsers(r.Context(), startUTC, endUTC)
 	if err != nil {
 		return err
 	}
 	l = l.Since("browsers.List")
 
 	var sizeStat goatcounter.Stats
-	totalSize, err := sizeStat.ListSizes(r.Context(), start, end)
+	totalSize, err := sizeStat.ListSizes(r.Context(), startUTC, endUTC)
 	if err != nil {
 		return err
 	}
 	l = l.Since("sizeStat.ListSizes")
 
 	var locStat goatcounter.Stats
-	totalLoc, err := locStat.ListLocations(r.Context(), start, end)
+	totalLoc, err := locStat.ListLocations(r.Context(), startUTC, endUTC)
 	if err != nil {
 		return err
 	}
@@ -343,7 +360,7 @@ func (h backend) index(w http.ResponseWriter, r *http.Request) error {
 	var refs goatcounter.HitStats
 	var moreRefs bool
 	if sr != "" {
-		moreRefs, err = refs.ListRefs(r.Context(), sr, start, end, 0)
+		moreRefs, err = refs.ListRefs(r.Context(), sr, startUTC, endUTC, 0)
 		if err != nil {
 			return err
 		}
