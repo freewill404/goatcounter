@@ -14,10 +14,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/teamwork/guru"
 	"zgo.at/goatcounter/cfg"
+	"zgo.at/goatcounter/zmail"
 	"zgo.at/zdb"
 	"zgo.at/zhttp"
 	"zgo.at/zhttp/ctxkey"
-	"zgo.at/zhttp/zmail"
 	"zgo.at/zlog"
 	"zgo.at/zvalidate"
 )

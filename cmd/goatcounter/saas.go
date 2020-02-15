@@ -18,9 +18,9 @@ import (
 	"zgo.at/goatcounter/cron"
 	"zgo.at/goatcounter/handlers"
 	"zgo.at/goatcounter/pack"
+	"zgo.at/goatcounter/zmail"
 	"zgo.at/utils/stringutil"
 	"zgo.at/zhttp"
-	"zgo.at/zhttp/zmail"
 	"zgo.at/zlog"
 	"zgo.at/zstripe"
 	"zgo.at/zvalidate"
@@ -52,11 +52,17 @@ Flags:
 
   -smtp          SMTP server, as URL (e.g. "smtp://user:pass@server"). for
                  sending login emails and errors (if -errors is enabled).
-                 Default is blank, meaning nothing is sent.
+
+                 If this is blank emails will be sent without using a relay;
+                 this should work fine, but deliverability will usually be worse
+                 (i.e. it will be more likely to end up in the spam box).
+
+                 A special value of "stdout" means no emails will be sent and
+                 emails will be printed to stdout only. This is the default.
 
   -errors        What to do with errors; they're always printed to stderr.
 
-                     mailto:addr     Email to this address; requires -smtp.
+                     mailto:addr     Email to this address.
 
                  Default: not set.
 
@@ -90,7 +96,7 @@ func saas() (int, error) {
 	CommandLine.BoolVar(&dev, "dev", false, "")
 	CommandLine.StringVar(&domain, "domain", "goatcounter.localhost:8081,static.goatcounter.localhost:8081", "")
 	CommandLine.StringVar(&listen, "listen", "localhost:8081", "")
-	CommandLine.StringVar(&smtp, "smtp", "", "")
+	CommandLine.StringVar(&smtp, "smtp", "stdout", "")
 	CommandLine.StringVar(&errors, "errors", "", "")
 	CommandLine.StringVar(&stripe, "stripe", "", "")
 	CommandLine.StringVar(&cfg.CertDir, "certdir", "", "")
@@ -114,9 +120,6 @@ func saas() (int, error) {
 	//v.URL("-smtp", smtp) // TODO smtp://localhost fails (1 domain label)
 	//v.Path("-certdir", cfg.CertDir, true) // TODO: implement in zvalidate
 	// TODO: validate tls
-	if smtp == "" && !dev {
-		v.Append("-smtp", "must be set if -dev is not enabled")
-	}
 	flagErrors(errors, &v)
 	flagStripe(stripe, &v)
 	flagDomain(domain, &v)

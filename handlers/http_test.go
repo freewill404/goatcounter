@@ -21,12 +21,12 @@ import (
 	"zgo.at/goatcounter/cfg"
 	"zgo.at/goatcounter/gctest"
 	"zgo.at/goatcounter/pack"
+	"zgo.at/goatcounter/zmail"
 	"zgo.at/utils/jsonutil"
 	"zgo.at/utils/sliceutil"
 	"zgo.at/zdb"
 	"zgo.at/zhttp"
 	"zgo.at/zhttp/ctxkey"
-	"zgo.at/zhttp/zmail"
 	"zgo.at/zlog"
 	"zgo.at/ztest"
 )

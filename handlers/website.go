@@ -19,11 +19,11 @@ import (
 	"github.com/pkg/errors"
 	"zgo.at/goatcounter"
 	"zgo.at/goatcounter/cfg"
+	"zgo.at/goatcounter/zmail"
 	"zgo.at/tz"
 	"zgo.at/zdb"
 	"zgo.at/zhttp"
 	"zgo.at/zhttp/ctxkey"
-	"zgo.at/zhttp/zmail"
 	"zgo.at/zlog"
 	"zgo.at/zvalidate"
 )

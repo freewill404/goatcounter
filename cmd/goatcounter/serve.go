@@ -18,9 +18,9 @@ import (
 	"zgo.at/goatcounter/cron"
 	"zgo.at/goatcounter/handlers"
 	"zgo.at/goatcounter/pack"
+	"zgo.at/goatcounter/zmail"
 	"zgo.at/zdb"
 	"zgo.at/zhttp"
-	"zgo.at/zhttp/zmail"
 	"zgo.at/zlog"
 	"zgo.at/zvalidate"
 )
@@ -49,11 +49,17 @@ Flags:
 
   -smtp          SMTP server, as URL (e.g. "smtp://user:pass@server"). for
                  sending login emails and errors (if -errors is enabled).
-                 Default is blank, meaning nothing is sent.
+
+                 If this is blank emails will be sent without using a relay;
+                 this should work fine, but deliverability will usually be worse
+                 (i.e. it will be more likely to end up in the spam box).
+
+                 A special value of "stdout" means no emails will be sent and
+                 emails will be printed to stdout only. This is the default.
 
   -errors        What to do with errors; they're always printed to stderr.
 
-                     mailto:addr     Email to this address; requires -smtp.
+                     mailto:addr     Email to this address.
 
                  Default: not set.
 
@@ -79,7 +85,7 @@ func serve() (int, error) {
 	CommandLine.BoolVar(&automigrate, "automigrate", false, "")
 	CommandLine.BoolVar(&dev, "dev", false, "")
 	CommandLine.StringVar(&listen, "listen", "localhost:8081", "")
-	CommandLine.StringVar(&smtp, "smtp", "", "")
+	CommandLine.StringVar(&smtp, "smtp", "stdout", "")
 	CommandLine.StringVar(&errors, "errors", "", "")
 	CommandLine.StringVar(&cfg.CertDir, "certdir", "", "")
 	CommandLine.StringVar(&tls, "tls", "", "")
@@ -98,9 +104,6 @@ func serve() (int, error) {
 	}
 
 	v := zvalidate.New()
-	if smtp == "" && !dev {
-		v.Append("-smtp", "must be set if -dev is not enabled")
-	}
 	flagErrors(errors, &v)
 
 	if cfg.DomainStatic != "" {
